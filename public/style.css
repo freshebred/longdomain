@@ -1,0 +1,257 @@
+/* Reset & Base */
+* {
+    box-sizing: border-box;
+    user-select: none;
+    /* Prevent selection while dragging */
+}
+
+body,
+html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #ffffff;
+    /* White theme */
+    font-family: 'Courier New', Courier, monospace;
+    color: #000000;
+}
+
+/* Viewport & World */
+#viewport {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    overflow: hidden;
+    cursor: grab;
+}
+
+#viewport:active {
+    cursor: grabbing;
+}
+
+#world {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    transform-origin: 0 0;
+    /* Will be transformed by JS */
+}
+
+.canvas-item {
+    position: absolute;
+    white-space: nowrap;
+    transform-origin: center center;
+    text-shadow: 1px 1px 0px #ccc;
+}
+
+/* SVG Overlay for lines */
+#overlay-lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 50;
+}
+
+/* UI Layer (Empty now, but kept for structure if needed) */
+#ui-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 100;
+}
+
+/* Center Console (Input Box) */
+#center-console {
+    position: absolute;
+    /* Moves with world */
+    top: 0;
+    left: 0;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+    background: #c0c0c0;
+    /* Light theme (Windows Classic Gray) */
+    border: 3px outset #ffffff;
+    padding: 10px;
+    width: 300px;
+    text-align: center;
+    box-shadow: 10px 10px 0px #888;
+    color: #000;
+    z-index: 1000;
+}
+
+.marquee-container {
+    background-color: #000;
+    color: #ff00ff;
+    font-weight: bold;
+    border: 2px inset #888;
+    margin-bottom: 10px;
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+}
+
+.input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+#user-input {
+    background-color: #ffffff;
+    color: #000;
+    border: 2px inset #888;
+    padding: 5px;
+    font-family: 'Verdana', sans-serif;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+#submit-btn {
+    background-color: #c0c0c0;
+    color: #000;
+    border: 2px outset #fff;
+    padding: 5px;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: 'Tahoma', sans-serif;
+    letter-spacing: 1px;
+}
+
+#submit-btn:active {
+    border-style: inset;
+}
+
+#status-msg {
+    margin-top: 5px;
+    font-size: 10px;
+    color: #ff0000;
+    min-height: 12px;
+}
+
+/* Popups & Stupid Stuff */
+#popups-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 80;
+    overflow: hidden;
+}
+
+.stupid-popup {
+    position: absolute;
+    background: #c0c0c0;
+    border: 2px outset #fff;
+    padding: 2px;
+    box-shadow: 5px 5px 0 #000;
+    pointer-events: auto;
+    max-width: 200px;
+    text-align: center;
+    font-family: 'Tahoma', sans-serif;
+    animation: popIn 0.2s ease-out;
+}
+
+.popup-header {
+    background: #000080;
+    color: #fff;
+    padding: 2px;
+    font-size: 10px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+}
+
+.popup-close {
+    cursor: pointer;
+    background: #c0c0c0;
+    color: #000;
+    border: 1px outset #fff;
+    width: 12px;
+    height: 12px;
+    line-height: 10px;
+    text-align: center;
+}
+
+.popup-content {
+    padding: 10px;
+    color: #000;
+    font-size: 12px;
+}
+
+.stupid-shape {
+    position: absolute;
+    pointer-events: none;
+    z-index: 10;
+    opacity: 0.8;
+}
+
+@keyframes popIn {
+    from {
+        transform: scale(0);
+    }
+
+    to {
+        transform: scale(1);
+    }
+}
+
+/* Fonts */
+.font-0 {
+    font-family: 'Arial', sans-serif;
+}
+
+.font-1 {
+    font-family: 'Verdana', sans-serif;
+}
+
+.font-2 {
+    font-family: 'Tahoma', sans-serif;
+}
+
+.font-3 {
+    font-family: 'Trebuchet MS', sans-serif;
+}
+
+.font-4 {
+    font-family: 'Times New Roman', serif;
+}
+
+.font-5 {
+    font-family: 'Georgia', serif;
+}
+
+.font-6 {
+    font-family: 'Garamond', serif;
+}
+
+.font-7 {
+    font-family: 'Courier New', monospace;
+}
+
+.font-8 {
+    font-family: 'Brush Script MT', cursive;
+}
+
+.font-9 {
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+}
+
+.font-10 {
+    font-family: 'Impact', sans-serif;
+}
+
+.font-11 {
+    font-family: 'Papyrus', fantasy;
+}
