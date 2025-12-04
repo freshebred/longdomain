@@ -1,11 +1,13 @@
 const viewport = document.getElementById('viewport');
 const world = document.getElementById('world');
 const itemsContainer = document.getElementById('items-container');
+const usersContainer = document.getElementById('users-container');
 const overlayLines = document.getElementById('overlay-lines');
 const userInput = document.getElementById('user-input');
 const submitBtn = document.getElementById('submit-btn');
 const statusMsg = document.getElementById('status-msg');
 const popupsLayer = document.getElementById('popups-layer');
+const onlineCountEl = document.getElementById('online-count');
 
 // State
 let scale = 1;
@@ -17,6 +19,10 @@ let lastPanX, lastPanY;
 let canvasItems = [];
 let jokeLines = [];
 let targetItem = null; // The item to point to with the yellow line
+let ws = null;
+let isConnected = false;
+let otherUsers = new Map(); // id -> {x, y, w, h, scale, el}
+let myId = null;
 
 // Constants
 const MIN_SCALE = 0.1;
@@ -26,6 +32,7 @@ const COLORS = ['#ff0000', '#008000', '#0000ff', '#800080', '#008080', '#000000'
 // Initialization
 async function init() {
     await fetchData();
+    setupWebSocket();
     setupEventListeners();
     renderItems();
     startStupidLoop();
@@ -44,9 +51,132 @@ async function fetchData() {
     }
 }
 
+function setupWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+    ws.onopen = () => {
+        isConnected = true;
+        statusMsg.textContent = 'CONNECTED';
+        setTimeout(() => { statusMsg.textContent = ''; }, 2000);
+        sendViewportUpdate();
+    };
+
+    ws.onclose = () => {
+        isConnected = false;
+        statusMsg.textContent = 'DISCONNECTED - RECONNECTING...';
+        onlineCountEl.textContent = 'Online: 0';
+        setTimeout(setupWebSocket, 3000);
+    };
+
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+
+            switch (data.type) {
+                case 'init':
+                    myId = data.id;
+                    break;
+                case 'online_count':
+                    onlineCountEl.textContent = `Online: ${data.count}`;
+                    break;
+                case 'viewports':
+                    updateOtherUsers(data.viewports);
+                    break;
+                case 'new_item':
+                    canvasItems.push(data.item);
+                    renderNewItem(data.item);
+                    break;
+                case 'submit_success':
+                    statusMsg.textContent = 'SENT!';
+                    userInput.value = '';
+                    canvasItems.push(data.item);
+                    renderNewItem(data.item);
+                    targetItem = data.item;
+                    setTimeout(() => { statusMsg.textContent = ''; }, 3000);
+                    break;
+                case 'submit_error':
+                    statusMsg.textContent = data.error || 'ERROR';
+                    setTimeout(() => { statusMsg.textContent = ''; }, 3000);
+                    break;
+            }
+        } catch (e) {
+            console.error('WS Error', e);
+        }
+    };
+}
+
+function sendViewportUpdate() {
+    if (!isConnected) return;
+
+    // Calculate visible area in world coordinates
+    // World Origin (0,0) is at Screen Center + (panX, panY)
+    // We want the World Coordinate of the Screen Center.
+    // ScreenCenter = WorldOrigin + WorldOffset * scale
+    // ScreenCenter is visually at (ScreenW/2, ScreenH/2)
+    // But WorldOrigin is visually at (ScreenW/2 + panX, ScreenH/2 + panY)
+    // So: ScreenCenter = WorldOrigin - (panX, panY)
+    // WorldOffset = -panX / scale
+
+    const w = window.innerWidth / scale;
+    const h = window.innerHeight / scale;
+    const x = -panX / scale; // Center X
+    const y = -panY / scale; // Center Y
+
+    ws.send(JSON.stringify({
+        type: 'viewport',
+        viewport: { x, y, w, h, scale }
+    }));
+}
+
+function updateOtherUsers(viewports) {
+    // Mark all as not updated
+    const updatedIds = new Set();
+
+    viewports.forEach(vp => {
+        if (vp.id === myId) return; // Don't show self
+
+        updatedIds.add(vp.id);
+
+        let user = otherUsers.get(vp.id);
+        if (!user) {
+            // Create new element
+            const el = document.createElement('div');
+            el.className = 'user-viewport';
+            usersContainer.appendChild(el);
+            user = { el };
+            otherUsers.set(vp.id, user);
+        }
+
+        // Update properties
+        user.x = vp.x;
+        user.y = vp.y;
+        user.w = vp.w;
+        user.h = vp.h;
+
+        // Update element style
+        // vp.x, vp.y are the center of the viewport in world space
+        // CSS left/top should be the top-left corner
+
+        user.el.style.width = `${vp.w}px`;
+        user.el.style.height = `${vp.h}px`;
+        user.el.style.left = `${vp.x - vp.w / 2}px`;
+        user.el.style.top = `${vp.y - vp.h / 2}px`;
+    });
+
+    // Remove stale users
+    for (const [id, user] of otherUsers) {
+        if (!updatedIds.has(id)) {
+            user.el.remove();
+            otherUsers.delete(id);
+        }
+    }
+}
+
 function setupEventListeners() {
     // Panning
     viewport.addEventListener('mousedown', e => {
+        if (!isConnected) return;
         isDragging = true;
         startX = e.clientX;
         startY = e.clientY;
@@ -68,10 +198,12 @@ function setupEventListeners() {
     window.addEventListener('mouseup', () => {
         isDragging = false;
         viewport.style.cursor = 'grab';
+        if (isConnected) sendViewportUpdate();
     });
 
     // Zooming
     viewport.addEventListener('wheel', e => {
+        if (!isConnected) return;
         e.preventDefault();
         const zoomIntensity = 0.1;
         const delta = -Math.sign(e.deltaY);
@@ -80,6 +212,7 @@ function setupEventListeners() {
         if (newScale >= MIN_SCALE && newScale <= MAX_SCALE) {
             scale = newScale;
             updateTransform();
+            sendViewportUpdate();
         }
     }, { passive: false });
 
@@ -91,6 +224,7 @@ function setupEventListeners() {
 
     // Mobile Touch
     viewport.addEventListener('touchstart', e => {
+        if (!isConnected) return;
         if (e.touches.length === 1) {
             isDragging = true;
             startX = e.touches[0].clientX;
@@ -112,6 +246,7 @@ function setupEventListeners() {
 
     viewport.addEventListener('touchend', () => {
         isDragging = false;
+        if (isConnected) sendViewportUpdate();
     });
 }
 
@@ -125,53 +260,43 @@ function renderItems() {
     itemsContainer.innerHTML = ''; // Clear and rebuild
 
     canvasItems.forEach(item => {
-        const el = document.createElement('div');
-        el.className = 'canvas-item';
-        el.textContent = item.text;
-        el.style.left = `${item.x}px`;
-        el.style.top = `${item.y}px`;
-        el.style.transform = `translate(-50%, -50%) rotate(${item.rotation}deg)`;
-        el.style.fontSize = `${item.fontSize}px`;
-        const fontIndex = Math.abs(hashCode(item.text)) % 12;
-        el.classList.add(`font-${fontIndex}`);
-
-        // Use stored color, or deterministic hash for old items
-        const colorIndex = Math.abs(hashCode(item.text + (item.timestamp || ''))) % COLORS.length;
-        el.style.color = item.color || COLORS[colorIndex];
-
-        itemsContainer.appendChild(el);
+        renderNewItem(item);
     });
 }
 
-async function submitText() {
+function renderNewItem(item) {
+    const el = document.createElement('div');
+    el.className = 'canvas-item';
+    el.textContent = item.text;
+    el.style.left = `${item.x}px`;
+    el.style.top = `${item.y}px`;
+    el.style.transform = `translate(-50%, -50%) rotate(${item.rotation}deg)`;
+    el.style.fontSize = `${item.fontSize}px`;
+    const fontIndex = Math.abs(hashCode(item.text)) % 12;
+    el.classList.add(`font-${fontIndex}`);
+
+    // Use stored color, or deterministic hash for old items
+    const colorIndex = Math.abs(hashCode(item.text + (item.timestamp || ''))) % COLORS.length;
+    el.style.color = item.color || COLORS[colorIndex];
+
+    itemsContainer.appendChild(el);
+}
+
+function submitText() {
+    if (!isConnected) {
+        statusMsg.textContent = 'NOT CONNECTED';
+        return;
+    }
+
     const text = userInput.value.trim();
     if (!text) return;
 
     statusMsg.textContent = 'SENDING...';
 
-    try {
-        const res = await fetch('/api/submit', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
-        });
-
-        const data = await res.json();
-
-        if (res.ok) {
-            statusMsg.textContent = 'SENT!';
-            userInput.value = '';
-            canvasItems.push(data.item);
-            renderItems();
-            targetItem = data.item;
-        } else {
-            statusMsg.textContent = data.error || 'ERROR';
-        }
-    } catch (err) {
-        statusMsg.textContent = 'NETWORK ERROR';
-    }
-
-    setTimeout(() => { statusMsg.textContent = ''; }, 3000);
+    ws.send(JSON.stringify({
+        type: 'submit',
+        text: text
+    }));
 }
 
 function updateOverlay() {

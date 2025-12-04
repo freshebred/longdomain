@@ -3,6 +3,8 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+const WebSocket = require('ws');
 
 const app = express();
 const PORT = 3000;
@@ -17,15 +19,10 @@ const JOKE_FILE = path.join(__dirname, 'data', 'dataset.json');
 // Rate limiting: Map<IP, timestamp[]>
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 3 * 1000; // 3 seconds
-const MAX_REQUESTS = 100000;
+const MAX_REQUESTS = 100000; // High limit as per previous code, but we'll use it for WS messages too
 
 // Bad words regex (basic list + patterns)
-const badWordsRegex = /\b(badword1|badword2|hate|violence|kill|death|stupid_placeholder_for_actual_bad_words)\b/i;
-// Note: In a real scenario, I'd use a more comprehensive list or library, 
-// but for this "stupid" app, I'll keep it simple and maybe add some funny "bad" words to filter.
-// The user asked for "advanced regex", so let's make it look a bit more complex.
 const advancedFilter = /((f|ph)[u@*](c|k|q)|s[h$][i1]t|b[i1]tch|wh[o0]re|c[u*]nt|n[i1]gg(er|a)|k[i1]ll|d[i1]e|su[i1]c[i1]de)/i;
-
 
 function isRateLimited(ip) {
     const now = Date.now();
@@ -124,6 +121,159 @@ function checkCollision(newItem, existingItems) {
     return false;
 }
 
+// Create HTTP server
+const server = http.createServer(app);
+
+// Create WebSocket server
+const wss = new WebSocket.Server({ server });
+
+// Store connected clients: Map<ws, {ip, viewport: {x, y, w, h, scale}, id}>
+const clients = new Map();
+
+function broadcast(data, excludeWs = null) {
+    const message = JSON.stringify(data);
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN && client !== excludeWs) {
+            client.send(message);
+        }
+    });
+}
+
+function broadcastOnlineCount() {
+    const count = wss.clients.size;
+    broadcast({ type: 'online_count', count });
+}
+
+function broadcastViewports() {
+    const viewports = [];
+    clients.forEach((data, ws) => {
+        if (data.viewport) {
+            viewports.push({ id: data.id, ...data.viewport });
+        }
+    });
+    // Broadcast to all, no exclusion needed really, but client can filter self if needed
+    // Actually, let's exclude the sender in the loop if we wanted, but for viewports everyone needs to know everyone else
+    // We will send all viewports to everyone. Client filters self by ID if needed.
+    broadcast({ type: 'viewports', viewports });
+}
+
+wss.on('connection', (ws, req) => {
+    const ip = req.socket.remoteAddress;
+    const id = Math.random().toString(36).substr(2, 9);
+
+    clients.set(ws, { ip, id, viewport: null });
+
+    // Send init message with ID
+    ws.send(JSON.stringify({ type: 'init', id }));
+
+    broadcastOnlineCount();
+
+    ws.on('message', (message) => {
+        try {
+            const data = JSON.parse(message);
+
+            if (data.type === 'viewport') {
+                const clientData = clients.get(ws);
+                if (clientData) {
+                    clientData.viewport = data.viewport;
+                    // We could broadcast immediately or throttle. 
+                    // For smoothness, let's broadcast immediately for now, but in high load this should be throttled.
+                    broadcastViewports();
+                }
+            } else if (data.type === 'submit') {
+                const clientData = clients.get(ws);
+                if (!clientData) return;
+
+                if (isRateLimited(clientData.ip)) {
+                    ws.send(JSON.stringify({ type: 'submit_error', error: 'Rate limit exceeded. Chill out.' }));
+                    return;
+                }
+
+                const { text } = data;
+
+                if (!text || text.length > 67) {
+                    ws.send(JSON.stringify({ type: 'submit_error', error: 'Text too long or empty.' }));
+                    return;
+                }
+
+                if (advancedFilter.test(text)) {
+                    ws.send(JSON.stringify({ type: 'submit_error', error: 'Watch your language!' }));
+                    return;
+                }
+
+                try {
+                    const canvasData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+
+                    let newItem = null;
+                    let attempts = 0;
+                    const maxAttempts = 5000;
+
+                    while (!newItem && attempts < maxAttempts) {
+                        const count = canvasData.length;
+                        const gap = 500;
+                        let expansion = 0;
+                        if (attempts > 100) {
+                            expansion = (attempts - 100) * 5;
+                        }
+
+                        const maxRadius = 500 + (count * 10) + expansion;
+                        const minRadius = Math.max(0, maxRadius - gap);
+                        const angle = Math.random() * Math.PI * 2;
+                        const r = Math.sqrt(Math.random() * (maxRadius * maxRadius - minRadius * minRadius) + minRadius * minRadius);
+                        const x = r * Math.cos(angle);
+                        const y = r * Math.sin(angle);
+                        const rotation = (Math.random() * 140) - 70;
+                        const fontSize = Math.floor(Math.random() * (64 - 24 + 1)) + 24;
+                        const COLORS = ['#ff0000', '#008000', '#0000ff', '#800080', '#008080', '#000000', '#ff4500', '#8b4513'];
+                        const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+                        const candidate = {
+                            text,
+                            x,
+                            y,
+                            rotation,
+                            fontSize,
+                            color,
+                            timestamp: Date.now()
+                        };
+
+                        if (!checkCollision(candidate, canvasData)) {
+                            newItem = candidate;
+                        }
+                        attempts++;
+                    }
+
+                    if (!newItem) {
+                        ws.send(JSON.stringify({ type: 'submit_error', error: 'Canvas too crowded near center, try again.' }));
+                        return;
+                    }
+
+                    canvasData.push(newItem);
+                    fs.writeFileSync(DATA_FILE, JSON.stringify(canvasData, null, 2));
+
+                    // Send success to sender
+                    ws.send(JSON.stringify({ type: 'submit_success', item: newItem }));
+
+                    // Broadcast new item to everyone else
+                    broadcast({ type: 'new_item', item: newItem }, ws);
+
+                } catch (err) {
+                    console.error(err);
+                    ws.send(JSON.stringify({ type: 'submit_error', error: 'Server error' }));
+                }
+            }
+        } catch (e) {
+            console.error('Invalid message', e);
+        }
+    });
+
+    ws.on('close', () => {
+        clients.delete(ws);
+        broadcastOnlineCount();
+        broadcastViewports(); // Remove their box
+    });
+});
+
 app.get('/api/data', (req, res) => {
     try {
         const canvasData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
@@ -135,97 +285,8 @@ app.get('/api/data', (req, res) => {
     }
 });
 
-app.post('/api/submit', (req, res) => {
-    const ip = req.ip;
-    if (isRateLimited(ip)) {
-        return res.status(429).json({ error: 'Rate limit exceeded. Chill out.' });
-    }
+// Removed POST /api/submit as it is now handled via WebSocket
 
-    const { text } = req.body;
-
-    if (!text || text.length > 67) {
-        return res.status(400).json({ error: 'Text too long or empty.' });
-    }
-
-    if (advancedFilter.test(text)) {
-        return res.status(400).json({ error: 'Watch your language!' });
-    }
-
-    try {
-        const canvasData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-
-        let newItem = null;
-        let attempts = 0;
-        const maxAttempts = 5000; // Much higher limit
-
-        while (!newItem && attempts < maxAttempts) {
-            // Dynamic Generation Zone (Annulus)
-            const count = canvasData.length;
-            const gap = 500;
-
-            // If we're struggling to find a spot, expand the search area
-            let expansion = 0;
-            if (attempts > 100) {
-                expansion = (attempts - 100) * 5; // Expand significantly if stuck
-            }
-
-            // Base radius grows faster (10px per item instead of 1) + expansion
-            const maxRadius = 500 + (count * 10) + expansion;
-            const minRadius = Math.max(0, maxRadius - gap);
-
-            // Random angle
-            const angle = Math.random() * Math.PI * 2;
-
-            // Random radius within the annulus
-            const r = Math.sqrt(Math.random() * (maxRadius * maxRadius - minRadius * minRadius) + minRadius * minRadius);
-
-            const x = r * Math.cos(angle);
-            const y = r * Math.sin(angle);
-
-            // Random rotation (-70 to 70)
-            const rotation = (Math.random() * 140) - 70;
-
-            // Random font size (24 to 64)
-            const fontSize = Math.floor(Math.random() * (64 - 24 + 1)) + 24;
-
-            // Random color
-            const COLORS = ['#ff0000', '#008000', '#0000ff', '#800080', '#008080', '#000000', '#ff4500', '#8b4513'];
-            const color = COLORS[Math.floor(Math.random() * COLORS.length)];
-
-            // Random font (handled on client, but we can store an index or name)
-            // Let's just store the properties needed for collision
-
-            const candidate = {
-                text,
-                x,
-                y,
-                rotation,
-                fontSize,
-                color,
-                timestamp: Date.now()
-            };
-
-            if (!checkCollision(candidate, canvasData)) {
-                newItem = candidate;
-            }
-            attempts++;
-        }
-
-        if (!newItem) {
-            return res.status(409).json({ error: 'Canvas too crowded near center, try again.' });
-        }
-
-        canvasData.push(newItem);
-        fs.writeFileSync(DATA_FILE, JSON.stringify(canvasData, null, 2));
-
-        res.json({ success: true, item: newItem });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
