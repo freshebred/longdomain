@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>THE INFINITE VOID 2000</title>
-    <link rel="stylesheet" href="style.css?v=1.0">
+    <link rel="stylesheet" href="style.css?v=1.2">
 </head>
 
 <body>
@@ -24,19 +24,50 @@
                     <button id="submit-btn">SEND IT</button>
                 </div>
                 <div id="status-msg"></div>
+                <button id="answer-q-btn">💬 ANSWER A QUESTION</button>
             </div>
         </div>
         <svg id="overlay-lines" xmlns="http://www.w3.org/2000/svg"></svg>
     </div>
 
     <div id="ui-layer">
-        <!-- UI Layer is now empty of console, but kept for overlay elements if needed -->
+        <div id="online-count">Online: 0</div>
     </div>
 
     <!-- Popups Container -->
     <div id="popups-layer"></div>
 
-    <script src="script.js?v=1.0"></script>
+    <!-- Answer Question Modal -->
+    <div id="aq-modal" class="aq-hidden">
+        <div id="aq-modal-box">
+            <div id="aq-modal-header">
+                <span id="aq-modal-title">ANSWER A QUESTION</span>
+                <button id="aq-close-btn">X</button>
+            </div>
+            <div id="aq-modal-body">
+                <!-- Step 1: choose question -->
+                <div id="aq-step-choose">
+                    <div id="aq-q-list"></div>
+                </div>
+                <!-- Step 2: enter answer -->
+                <div id="aq-step-answer" class="aq-hidden">
+                    <div id="aq-selected-q"></div>
+                    <textarea id="aq-answer-input" maxlength="25" placeholder="Your answer (max 25 chars)..."></textarea>
+                    <div id="aq-char-info">
+                        <span id="aq-char-count">0 / 25</span>
+                        <span id="aq-too-long" class="aq-hidden">Response too long for this circle!</span>
+                    </div>
+                    <div id="aq-cooldown-msg"></div>
+                    <div id="aq-answer-actions">
+                        <button id="aq-back-btn">← Back</button>
+                        <button id="aq-submit-btn">SEND IT</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js?v=1.2"></script>
 </body>
 
 </html>

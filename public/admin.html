@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADMIN — THE VOID</title>
+    <link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+    <nav id="admin-nav">
+        <div id="admin-logo">⚡ VOID ADMIN</div>
+        <div id="nav-tabs">
+            <button class="tab-btn active" data-tab="messages">📝 Messages</button>
+            <button class="tab-btn" data-tab="questions">🔵 Questions</button>
+        </div>
+        <a href="/" id="back-link">← Back to Void</a>
+    </nav>
+
+    <main id="admin-main">
+
+        <!-- ── Messages Tab ─────────────────────────────────────────────── -->
+        <section id="tab-messages" class="tab-panel active">
+            <div class="panel-header">
+                <h2>Canvas Messages</h2>
+                <span id="msg-count" class="badge">loading...</span>
+            </div>
+            <div id="msg-search-bar">
+                <input type="text" id="msg-search" placeholder="Search messages..." autocomplete="off">
+            </div>
+            <div id="messages-table-wrap">
+                <table id="messages-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Text</th>
+                            <th>Size</th>
+                            <th>Color</th>
+                            <th>Time</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="messages-tbody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ── Questions Tab ────────────────────────────────────────────── -->
+        <section id="tab-questions" class="tab-panel">
+            <div class="panel-header">
+                <h2>Topic Questions</h2>
+                <button id="new-q-btn" class="btn-primary">+ New Question</button>
+            </div>
+
+            <!-- Create/Edit Question Form -->
+            <div id="q-form-panel" class="hidden">
+                <div class="form-card">
+                    <h3 id="q-form-title">Create Question</h3>
+                    <input type="hidden" id="q-edit-id">
+                    <div class="form-row">
+                        <label>Question Text *</label>
+                        <input type="text" id="q-text" placeholder="Ask something..." maxlength="200">
+                    </div>
+                    <div class="form-row">
+                        <label>Circle Size: <span id="size-display">500</span>px</label>
+                        <input type="range" id="q-size" min="100" max="1000" value="500" step="10">
+                        <div class="size-preview-wrap">
+                            <div id="size-preview-circle"></div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>Status</label>
+                        <div class="toggle-wrap">
+                            <button id="status-toggle" class="status-btn open" data-status="open">OPEN</button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>Expires At (optional)</label>
+                        <input type="datetime-local" id="q-expires">
+                    </div>
+                    <div class="form-actions">
+                        <button id="q-submit-btn" class="btn-primary">Create</button>
+                        <button id="q-cancel-btn" class="btn-secondary">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Questions List -->
+            <div id="questions-list"></div>
+        </section>
+
+    </main>
+
+    <!-- Confirm Dialog -->
+    <div id="confirm-overlay" class="hidden">
+        <div id="confirm-box">
+            <div id="confirm-msg">Are you sure?</div>
+            <div id="confirm-actions">
+                <button id="confirm-yes" class="btn-danger">Delete</button>
+                <button id="confirm-no" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast-container"></div>
+
+    <script src="/admin.js"></script>
+</body>
+</html>

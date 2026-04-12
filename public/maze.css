@@ -1,0 +1,263 @@
+/* ── Maze Page Styles ─────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --neon-green: #39ff14;
+    --neon-pink: #ff00cc;
+    --neon-cyan: #00ffff;
+    --neon-red: #ff003c;
+    --bg: #0a0a0a;
+}
+
+html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--neon-green);
+    font-family: 'VT323', monospace;
+    overflow: hidden;
+    user-select: none;
+}
+
+/* ── Chaos Background ─────────────────────────────────────────────────────── */
+
+#chaos-bg {
+    position: fixed; inset: 0;
+    background:
+        radial-gradient(ellipse at 20% 30%, rgba(57,255,20,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 70%, rgba(255,0,204,0.04) 0%, transparent 60%);
+    animation: bgShift 8s ease-in-out infinite alternate;
+    z-index: 0;
+    pointer-events: none;
+}
+
+@keyframes bgShift {
+    0%   { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
+}
+
+/* Scanlines */
+body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.15) 2px,
+        rgba(0,0,0,0.15) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+}
+
+/* ── Fake cursor ──────────────────────────────────────────────────────────── */
+
+#fake-cursor {
+    position: fixed;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--neon-pink);
+    box-shadow: 0 0 12px var(--neon-pink), 0 0 30px var(--neon-pink);
+    pointer-events: none;
+    z-index: 9998;
+    transition: left 0.8s cubic-bezier(0.25,1,0.5,1), top 0.8s cubic-bezier(0.25,1,0.5,1);
+    opacity: 0.7;
+}
+
+/* ── Maze Container ───────────────────────────────────────────────────────── */
+
+#maze-container {
+    position: relative; z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 100vh;
+    padding: 30px 20px 80px;
+    gap: 16px;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+#maze-header {
+    text-align: center;
+}
+
+#maze-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(18px, 3vw, 32px);
+    color: var(--neon-green);
+    text-shadow: 0 0 20px var(--neon-green), 0 0 40px var(--neon-green);
+    animation: titlePulse 2s ease-in-out infinite;
+    letter-spacing: 4px;
+}
+
+@keyframes titlePulse {
+    0%, 100% { opacity: 1; text-shadow: 0 0 20px var(--neon-green), 0 0 40px var(--neon-green); }
+    50% { opacity: 0.7; text-shadow: 0 0 5px var(--neon-green); }
+}
+
+#maze-subtitle {
+    font-size: 22px;
+    color: rgba(57,255,20,0.5);
+    margin-top: 6px;
+    animation: subtitleDrift 5s ease-in-out infinite;
+}
+
+@keyframes subtitleDrift {
+    0%, 100% { letter-spacing: 2px; }
+    50% { letter-spacing: 8px; color: var(--neon-pink); }
+}
+
+#maze-depth {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    color: var(--neon-cyan);
+    margin-top: 10px;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px var(--neon-cyan);
+}
+
+/* ── Troll message ────────────────────────────────────────────────────────── */
+
+#troll-msg {
+    font-size: 20px;
+    color: var(--neon-red);
+    min-height: 28px;
+    text-align: center;
+    text-shadow: 0 0 8px var(--neon-red);
+    animation: trollBlink 0.8s step-end infinite;
+    letter-spacing: 2px;
+}
+
+@keyframes trollBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+/* ── Countdown bar ────────────────────────────────────────────────────────── */
+
+#countdown-bar {
+    width: min(400px, 90vw);
+    height: 6px;
+    background: rgba(57,255,20,0.2);
+    border-radius: 3px;
+    border: 1px solid rgba(57,255,20,0.4);
+    overflow: hidden;
+}
+
+#countdown-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--neon-green), var(--neon-cyan));
+    transform-origin: left;
+    transition: transform 0.1s linear;
+    box-shadow: 0 0 10px var(--neon-green);
+}
+
+/* ── Buttons Grid ─────────────────────────────────────────────────────────── */
+
+#buttons-grid {
+    position: relative;
+    width: min(700px, 94vw);
+    height: 380px;
+    margin-top: 10px;
+}
+
+/* Each button is absolutely positioned by JS */
+.maze-btn {
+    position: absolute;
+    width: 62px; height: 62px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    border: 2px solid var(--neon-green);
+    background: rgba(0,0,0,0.8);
+    color: var(--neon-green);
+    text-shadow: 0 0 8px currentColor;
+    box-shadow: 0 0 10px rgba(57,255,20,0.3), inset 0 0 10px rgba(57,255,20,0.05);
+    border-radius: 4px;
+    transition:
+        left 0.6s cubic-bezier(0.34,1.56,0.64,1),
+        top 0.6s cubic-bezier(0.34,1.56,0.64,1),
+        border-radius 0.4s ease,
+        transform 0.3s ease,
+        background 0.3s ease,
+        border-color 0.3s ease,
+        color 0.3s ease,
+        box-shadow 0.3s ease;
+    z-index: 20;
+    outline: none;
+    letter-spacing: 1px;
+}
+
+.maze-btn:hover {
+    background: rgba(57,255,20,0.15);
+    box-shadow: 0 0 24px rgba(57,255,20,0.8), inset 0 0 14px rgba(57,255,20,0.2);
+    transform: scale(1.15);
+    z-index: 30;
+}
+
+.maze-btn:active {
+    transform: scale(0.9);
+}
+
+/* Morph class: applied during scramble */
+.maze-btn.morphing {
+    border-radius: 50% !important;
+}
+
+/* Shake animation */
+@keyframes shake {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    10% { transform: translateX(-4px) rotate(-3deg); }
+    20% { transform: translateX(4px) rotate(3deg); }
+    30% { transform: translateX(-6px) rotate(-2deg); }
+    40% { transform: translateX(6px) rotate(2deg); }
+    50% { transform: translateX(-3px) rotate(-1deg); }
+    60% { transform: translateX(3px) rotate(1deg); }
+    70% { transform: translateX(-2px) rotate(-0.5deg); }
+    80% { transform: translateX(2px) rotate(0.5deg); }
+    90% { transform: translateX(-1px); }
+}
+
+.maze-btn.shaking {
+    animation: shake 0.5s ease-in-out;
+    animation-fill-mode: none;
+}
+
+/* Pulse scale animation */
+@keyframes btnPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+
+.maze-btn.pulsing {
+    animation: btnPulse 0.4s ease-in-out;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+
+#maze-footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    padding: 12px;
+    text-align: center;
+    font-size: 18px;
+    color: rgba(57,255,20,0.3);
+    background: rgba(0,0,0,0.5);
+    border-top: 1px solid rgba(57,255,20,0.1);
+    z-index: 10;
+    letter-spacing: 3px;
+    animation: footerScroll 20s linear infinite;
+}
+
+@keyframes footerScroll {
+    0% { letter-spacing: 3px; color: rgba(57,255,20,0.3); }
+    50% { letter-spacing: 8px; color: rgba(255,0,204,0.4); }
+    100% { letter-spacing: 3px; color: rgba(57,255,20,0.3); }
+}
