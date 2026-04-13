@@ -169,7 +169,7 @@ function checkCollision(newItem, existingItems, questions = []) {
 
 // ─── Question packing helpers ─────────────────────────────────────────────────
 
-const AVERAGE_RESPONSE_FONT_SIZE = 16;
+const AVERAGE_RESPONSE_FONT_SIZE = 24;
 const MAX_RESPONSE_CHARS = 25;
 
 /**
@@ -183,7 +183,7 @@ function findResponsePosition(question, responseText, fontSize = AVERAGE_RESPONS
     const textW = responseText.length * (fontSize * 0.6);
     const textH = fontSize * 1.4;
     const maxAttempts = 2000;
-    const safeRadius = radius - 20; // allow slight cut
+    const safeRadius = radius + 35; // allow text to gently spill up to 35px over the edge of the circle
 
     const existingRects = question.responses.map(r => ({
         x: r.x, y: r.y,
@@ -597,8 +597,11 @@ app.post('/api/questions/:id/respond', async (req, res) => {
             return res.status(429).json({ error: `Please wait ${remaining}s before answering again` });
         }
 
-        // Find placement with randomized font size
-        const randomFontSize = Math.floor(Math.random() * (28 - 14 + 1)) + 14;
+        // Find placement with massive, randomized font size dynamically capped so it doesn't break the 35px spill limit
+        const minFontSize = 24;
+        const maxPermittedByWidth = Math.floor((q.size + 20) / (text.trim().length * 0.6));
+        const maxFontSize = Math.max(minFontSize, Math.min(68, maxPermittedByWidth));
+        const randomFontSize = Math.floor(Math.random() * (maxFontSize - minFontSize + 1)) + minFontSize;
         const pos = findResponsePosition(q, text.trim(), randomFontSize);
         if (!pos) {
             return res.status(400).json({ error: 'This circle is full! No more responses fit.' });

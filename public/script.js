@@ -307,7 +307,7 @@ function getHeatColor(fillPct) {
 function estimateFillPct(q) {
     const responseCount = (q.responses || []).length;
     const maxArea = Math.PI * Math.pow(q.size / 2, 2);
-    const avgResponseArea = 25 * 9.6 * 22.4;
+    const avgResponseArea = 25 * 14.4 * 33.6; // Assuming ~24px average font size under the new dynamic scaling
     const estimatedMax = Math.max(1, Math.floor(maxArea / avgResponseArea));
     return Math.min(1, responseCount / estimatedMax);
 }
